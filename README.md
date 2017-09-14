@@ -62,15 +62,18 @@ function shuffle(height) {
     currentSeed = crypto.createHash('sha256').update(currentSeed).digest();
   }
   return truncDelegateList;
-}```
+}
+```
 That is, in this 16.8 minutes, 101 orders for the order of forging the client is OK, which gave the hacker a lot of operating space.
 
 For example, the list of delegates after the sort is as follows
-
+```
 1,6,9,10,50,70,31,22,13,25
+```
 The hacker actually controls the node for
-
+```
 1,10,70,31,13,25
+```
 Hackers in the No. 1 node caused by the network after the bifurcation, due to the interval between several loyal nodes, bifurcation quickly by the longest chain synchronization mechanism to eliminate, but if the hackers at this time on the loyalty of these nodes initiated DDOS attacks, then He will be able to make their invasion of the original non-consecutive malicious nodes continue to produce blocks, that is to say the bifurcation will continue to six blocks, then the two bifurcated network transactions will be confirmed 6 Times, these transactions may include conflicting transactions. That is to say that hackers only need to control the six nodes, with DDOS can be 100% resulting in double payment.
 
 ## 3 PBFT
