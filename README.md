@@ -1,39 +1,29 @@
-## 1 介绍
+## 1 Introduction
 
-BFT(Byzantine Fault Tolerance)是分布式系统对错误容忍程度的一种考量的模型，如果一个分布式系统能够容忍任意错误的发生
-（这些错误可能包括硬件错误、网络拥塞和延迟、黑客攻击、节点叛变），我们就说这个系统达到了拜占庭容错。
-虽然早在上世纪80年代，lamport就已经在论文中证明了拜占庭容错的可行性，但一直没有一个实用的、高效率的算法实现，直到castro和liskov发表了PBFT，
-其中P表示的是Pratical。
+BFT (Byzantine Fault Tolerance) is a model of a distributed system that tolerates the degree of error tolerance. If a distributed system can tolerate any errors (these errors may include hardware errors, network congestion and latency, hacker attacks, node hacking ), We say that this system has reached Byzantine fault tolerance. Although the early 80s of the last century, lamport has proved the feasibility of Byzantine fault tolerance, but has not been a practical, efficient algorithm to achieve until castro and liskov published PBFT, where P said Pratical.
 
-DPOS(Delegated Proof Of Stake)是一种基于委托人的权益证明的共识机制，主要用来实现分布式账本的一致性。虽然实际应用了DPOS的系统，比如bitshares，crypti
-都还没遇到过重大安全问题，但经过我们的测试和分析，它存在理论上的漏洞，如果被黑客利用就很容易对系统造成分叉，引发双重支付的风险。
-也就是说这种系统没有达到拜占庭容错。
+DPOS (Delegated Proof Of Stake) is a consensus mechanism based on the client's proof of entitlement, mainly used to achieve the consistency of distributed books. Although the actual application of the DPOS system, such as bitshares, crypti have not encountered a major security problem, but after our testing and analysis, it exists the theoretical loopholes, if hackers can easily use the system to cause bifurcation, Triggering the risk of double payments. That is to say that this system did not meet Byzantine fault tolerance.
 
-本项目主要做了两件事
+The project has done two things
 
-1. 分析DPOS算法的漏洞，并模拟最简单的黑客攻击，导致网络分叉
-2. 引入PBFT算法，对DPOS的安全性方面进行增强，使之容忍拜占庭错误
+Analyze the vulnerability of the DPOS algorithm and simulate the simplest hacker attacks, resulting in network bifurcation
+Introduce the PBFT algorithm to enhance the security aspects of DPOS to tolerate Byzantine errors
+In order to simplify the model, the code does not achieve block chain persistence, signature authentication, block synchronization and other functions, only to achieve a basic network model, it can only be used for demonstration and teaching, temporarily can not be used for real projects.
 
-为了简化模型，代码中并没有实现区块链持久化、签名认证、区块同步等功能，只实现了一个基本的网络模型，因此只能用于演示和教学，暂时不能用于真实项目中。
+## 2 DPOS analysis
 
+The core of the consensus algorithm in the block chain is to solve three problems
 
-## 2 DPOS分析
+Who will produce the block
+When to generate block
+How to verify the legitimacy of the block
+DPOS is the answer
 
-区块链中的共识算法核心就是解决三个问题
+Determined by the current top-ranked list of principals and the current time offset
+In regular intervals
+Because you can determine the legal forging by the timestamp of the block, you can verify the legitimacy of the signature and the client's public key provided by the block, and verify that the transaction in the block and the connection to the previous block are omitted.
+The pseudocode is shown below
 
-1. 谁来产生block
-2. 何时产生block
-3. 如何验证block的合法性
-
-DPOS是这样回答的
-
-1. 由当前的排名靠前的委托人列表和当前的时间偏移共同决定
-2. 按照固定的时间间隔定期产生
-3. 因为可以通过block的时间戳确定合法锻造者，所以可以通过block附带的签名和委托人的公钥验证其合法性，区块中交易的验证以及与上一块的衔接这里就略去不说了。
-
-用伪代码表示如下
-
-```
 for round i
     dlist_i = get N delegates sort by votes
     dlist_i = shuffle(dlist_i)
@@ -44,21 +34,15 @@ for round i
             generateBlock(keypair of delegates[pos])
         else
             skip
-```
+There are two main disadvantages of DPOS algorithm.
 
-DPOS算法的缺点主要有两个。
+One is to use the timestamp on the number of clients to take the way to determine the current time slice forging, which increases the possibility of error, if the client server time drift (such as may be a network problem or not properly configured ntp service), it will cause the network of bifurcation, the specific reference here [ https://github.com/LiskHQ/lisk/issues/82 ]
 
-其一是使用时间戳对委托人个数取余的方式，确定当前时间片的锻造者，这增大了出错的可能，如果委托人服务器的时间出现漂移（比如可能是网络问题
-或者没有正确配置ntp服务），就会造成网络的分叉，具体可以参考这里[https://github.com/LiskHQ/lisk/issues/82] 
+The second is that the client's rights are too high, may be abused, because the DPOS is not like POW on the calculation of computing power, DPOS client forging blocks do not need to calculate the power, they can forge in the moment countless blocks, And sent to different network nodes, resulting in network bifurcation.
 
-其二是，委托人的权利过高，可能会被滥用，因为DPOS不像POW那样对算力有要求，DPOS的委托人锻造区块不需要算力，他们可以在瞬间锻造出无数区块，
-并发往不同的网络节点，导致网络分叉。
+For the first question, DPOS did not have a good response, only hope that the client has a good server operation and maintenance experience, if they are a little careless, there will be cards, bifurcation risk. The second problem, DPOS mainly to deal with the client is a random order and the longest chain synchronization method. The longest chain synchronization is the most basic technology, there is no talk, we analyze the random sort.
 
-对于第一个问题，DPOS没有很好的应对方案，只能寄希望于委托人拥有良好的服务器运维经验，如果他们稍微粗心，就会出现卡块、分叉的危险。
-第二个问题，DPOS主要采取的应对方案是对委托人随机排序和最长链同步的方法。最长链同步是最基本的技术，这里就不谈了，我们分析下随机排序。
-
-以crypti为例，crypti中委托人有101个，锻造速率是10s一块，每一轮竞选周期大概16.8分钟。每个期间内排序算法的种子是不变的。具体可参考如下代码
-
+To crypti, for example, crypti in the principal has 101, forging rate is 10s a, each round of the election cycle of about 16.8 minutes. The seed of the sorting algorithm for each period is invariant. Specific reference to the following code
 ```
 function shuffle(height) {
   var truncDelegateList = [];
@@ -78,66 +62,46 @@ function shuffle(height) {
     currentSeed = crypto.createHash('sha256').update(currentSeed).digest();
   }
   return truncDelegateList;
-}
-```
+}```
+That is, in this 16.8 minutes, 101 orders for the order of forging the client is OK, which gave the hacker a lot of operating space.
 
-也就是说在这16.8分钟内，101个委托人锻造区块的顺序是确定的，这就给了黑客很大的操作空间。
+For example, the list of delegates after the sort is as follows
 
-举个例子，排序后的委托人列表如下
-
-```
 1,6,9,10,50,70,31,22,13,25
-```
+The hacker actually controls the node for
 
-黑客实际控制的节点为
-
-```
 1,10,70,31,13,25
-```
-
-黑客在1号节点造成网络分叉后，由于中间隔着几个忠诚的节点，分叉很快被最长链同步机制消除，但是如果黑客此时对这些间隔内的忠诚节点发起
-DDOS攻击，那么他就可以使他们入侵的本来不连续的恶意节点连续地产生区块了，也就是说分叉将持续到6个区块后，这时两个分叉网络中的所有交易都将被
-确认6次以上，这些交易中可能会包括相互冲突的交易。也就是说黑客只需要控制6个节点，配合DDOS就可以100%造成双重支付。
-
+Hackers in the No. 1 node caused by the network after the bifurcation, due to the interval between several loyal nodes, bifurcation quickly by the longest chain synchronization mechanism to eliminate, but if the hackers at this time on the loyalty of these nodes initiated DDOS attacks, then He will be able to make their invasion of the original non-consecutive malicious nodes continue to produce blocks, that is to say the bifurcation will continue to six blocks, then the two bifurcated network transactions will be confirmed 6 Times, these transactions may include conflicting transactions. That is to say that hackers only need to control the six nodes, with DDOS can be 100% resulting in double payment.
 
 ## 3 PBFT
 
-加入PBFT后，DPOS算法的前半部分不变，即委托人名单的确定方式和排序算法不变。
+After joining PBFT, the first half of the DPOS algorithm does not change, that is, the list of clients and the sorting algorithm does not change.
 
-变化的是后半部分，即区块的验证和持久化。
-区块的验证，不再采用单一的签名验证，而是全节点投票的方式，每当新区块创造出来时，忠诚的节点并不会立即将其写入区块链，而是等待其他节点的投票。
-当这个票数超过一定数量后，才进入执行阶段。
+The latter part of the change is the validation and persistence of the block. The verification of the block, no longer using a single signature verification, but the way the whole node votes, whenever the new block created, the loyal node does not immediately write it to the block chain, but wait for other nodes vote. When the number of votes more than a certain number before entering the implementation phase.
 
-本算法假定错误节点数不超过f个，总结点数n>=3f+1，那么系统可以通过满足以下两个条件来保证区块链的一致性
+The algorithm assumes that the number of error nodes does not exceed f and the number of points n> = 3f + 1, then the system can guarantee the consistency of the block by satisfying the following two conditions
 
-1. 如果一个正确的节点接受并执行了一个block，那么所有正确的节点都提交相同的block
-2. 所有正确的节点要么落后于最长链，要么与最长链一致，不会出现高度相同但block hash不同的情况
+If a correct node accepts and executes a block, then all the correct nodes commit the same block
+All the correct nodes either lag behind the longest chain, or the same as the longest chain, do not appear the same height but block hash different situation
+The algorithm flow is as follows:
 
-算法流程如下：
+The current time piece of forging will pack the collected transactions into blocks and broadcast (this step is consistent with the previous algorithm)
+If you have not received the block and have validated it, it broadcasts a prepare <h, d, s> message, where h is the height of the block, d is the summary of the block, s is the node signature
+After receiving the prepare message, the node starts to accumulate the number of messages in memory. When the prepare message is received after more than f + 1 different nodes, the node enters the prepared state, and then a commit <h, d, s> message is broadcast
+Each node receives more than 2f + 1 different node commit message, it is considered that the block has reached an agreement, into the committed state, and its persistence to the block chain database
+The system in the first height of the block received h, start a timer, when the time expires, if not yet reached a consensus, to give up this consensus.
+It should be noted that this algorithm is different from the algorithm in the PBFT paper. One is to cancel the state of commit-local, the other is no view changes in the process. Since PBFT was originally proposed primarily for a general CS architecture service system, the server responds to every request from the client, but in the block chain system, the block generation can be delayed until the next time And this delay is very common, which is essentially the same as the view change, each time slice is equivalent to a view, slot = time_offset / interval, the slot is equivalent to the view number.
 
-1. 当前时间片的锻造者将收集到的交易打包成block并进行广播（这一步与之前的算法一致）
-2. 收到block的委托人节点如果还没有收到过这个block并且验证合法后，就广播一个prepare<h, d, s>消息，其中h为block的高度，d是block的摘要，s是本节点签名
-3. 收到prepare消息后，节点开始在内存中累加消息数量，当收到超过f+1不同节点的prepare消息后，节点进入prepared状态，之后会广播一个commit<h, d, s>消息
-4. 每个节点收到超过2f+1个不同节点的commit消息后，就认为该区块已经达成一致，进入committed状态，并将其持久化到区块链数据库中
-5. 系统在在收到第一个高度为h的block时，启动一个定时器，当定时到期后，如果还没达成一致，就放弃本次共识。
+As a result of the cancellation of the view changes, to achieve a consensus performance is also greatly improved. Suppose there are N nodes in the system, including the client node and the common node. The message flow using the gossip algorithm, a broadcast need to pass the message limit is N ^ 2, the corresponding time cost is O (logN). If the ordinary node only receives no forwarding, then N can be reduced to the total number of nodes of the client n, because the number of clients in the system for a certain period of time remain unchanged, you can think of a broadcast time cost is constant t. To confirm a block requires 3 rounds of broadcast, that is, the total time is 3t. block message size is set to B, the total message consumption is (B + 2b) N ^ 2.
 
-需要说明的是，本算法与PBFT论文中的算法有所不同。一个是取消了commit-local的状态，另一个是没有视图变化的过程。因为PBFT最初提出来主要是面向的一般的C-S架构的服务系统，服务器对与客户端的每一个请求都要有所响应，但是在区块链系统中，区块的生成是可以延迟到下一个时间片的，而且这种延迟很常见，这跟视图变化本质上是一样的，每一个时间片相当于一个视图，slot = time_offset / interval，这个slot就相当于视图编号。
+The correctness of the algorithm is not proved here, we can refer to lamport and liskov the original paper, the project did not innovate any algorithm, but a classic PBFT algorithm to achieve, and slightly modified with the DPOS together. Demo results can see the results of the operation, which can be considered a proof.
 
-由于取消了视图变化，达成一次共识的性能也大幅度提升。假设系统中总共有N个节点，包括委托人节点和普通节点。系统的消息传播使用的gossip算法，一次广播需要传递的消息上限是N^2，对应的时间开销为O(logN)。假如普通节点只接收不转发，那么N可以降为委托人的节点总数n，因为系统中委托人数量一定时期内保持不变，可以认为一次广播的时间开销为常数t。确认一个block需要3轮广播，也就是总时间为3t。
-block消息大小设为B，prepare和commit的消息大小设为b，那么总共的带宽消耗为(B+2b)N^2。
+## 4 demo instructions
 
-算法的正确性就不在这里证明了，大家可以参考lamport和liskov的原始论文，本项目并没有创新任何算法，只是对经典PBFT算法的一个实现，并稍作修改后与DPOS结合起来。Demo的运行结果可以看出其效果，这也算是一种证明。
+installation
 
-## 4 demo说明
-
-安装
-
-```
 npm install
-```
-
-运行
-
+run
 ```
 // 帮助
 node main.js -h
@@ -151,17 +115,12 @@ node main.js -b 1,2,3
 // 组合使用pbft，和错误节点
 node main.js -b 1,2,3 -p
 ```
+## 5 demo
 
-### 5 演示
+First we use the default dpos algorithm to simulate a bifurcation attack
 
-首先我们使用默认的dpos算法，模拟一个分叉攻击
-
-```
 node main.js -b 10
-```
-
-等到第10个节点锻造区块时，它会制造两个fork，并发往不同的节点，可以看出在高度为4的时候，就开始分叉了
-
+Wait until the 10th node forged blocks, it will create two fork, and sent to a different node, you can see at a height of 4, it began to fork
 ```
 fork on node: 10, height: 4, fork1: 58b1c8d429f7ed6d47bf6e7bead2139af420be453259ea0da42091ced3b28ed8, fork2: 61084a05844c436a36dc1f14ad151bda19ab3774aa15d8b1006cbe1dfb01b943
 send fork1 to 2
@@ -190,15 +149,10 @@ node 17 (0:713304:0) -> (1:f76cf6:7) -> (2:f1d1bc:8) -> (3:cccd58:9) -> (4:61084
 node 18 (0:713304:0) -> (1:f76cf6:7) -> (2:f1d1bc:8) -> (3:cccd58:9) -> (4:61084a:10) -> 
 node 19 (0:713304:0) -> (1:f76cf6:7) -> (2:f1d1bc:8) -> (3:cccd58:9) -> (4:61084a:10) -> 
 ```
+Then, we open the pbft option and specify 4 "bad nodes"
 
-接着，我们开启pbft选项，并指定4个“坏节点”
-
-```
 node main.js -p -b 1,5,7,10
-```
-
-经过几轮的分叉攻击后，我们看到所有正常的节点都是一致的，只有少数坏节点不一致
-
+After several rounds of bifurcation attacks, we see all the normal nodes are the same, only a few bad nodes are inconsistent
 ```
 node 0 (0:713304:0) -> (1:bb9e59:17) -> (2:641aad:18) -> (3:e2614b:19) -> (4:ac5538:0) -> (5:c82859:1) -> (6:015639:2) -> (7:288ce7:3) -> (8:fdc189:4) -> (9:7eb1e1:6) -> (10:3d33b9:8) -> (11:851887:9) -> (12:37a10a:11) -> (13:7d0a62:12) -> (14:08376c:13) -> (15:7221d3:14) -> 
 node 1 (0:713304:0) -> (1:bb9e59:17) -> (2:641aad:18) -> (3:e2614b:19) -> (4:ac5538:0) -> (5:c82859:1) -> (6:015639:2) -> (7:288ce7:3) -> (8:fdc189:4) -> (9:faf2c9:5) -> (10:0ed227:10) -> 
@@ -220,5 +174,4 @@ node 16 (0:713304:0) -> (1:bb9e59:17) -> (2:641aad:18) -> (3:e2614b:19) -> (4:ac
 node 17 (0:713304:0) -> (1:bb9e59:17) -> (2:641aad:18) -> (3:e2614b:19) -> (4:ac5538:0) -> (5:c82859:1) -> (6:015639:2) -> (7:288ce7:3) -> (8:fdc189:4) -> (9:7eb1e1:6) -> (10:3d33b9:8) -> (11:851887:9) -> (12:37a10a:11) -> (13:7d0a62:12) -> (14:08376c:13) -> (15:7221d3:14) -> 
 node 18 (0:713304:0) -> (1:bb9e59:17) -> (2:641aad:18) -> (3:e2614b:19) -> (4:ac5538:0) -> (5:c82859:1) -> (6:015639:2) -> (7:288ce7:3) -> (8:fdc189:4) -> (9:7eb1e1:6) -> (10:3d33b9:8) -> (11:851887:9) -> (12:37a10a:11) -> (13:7d0a62:12) -> (14:08376c:13) -> (15:7221d3:14) -> 
 node 19 (0:713304:0) -> (1:bb9e59:17) -> (2:641aad:18) -> (3:e2614b:19) -> (4:ac5538:0) -> (5:c82859:1) -> (6:015639:2) -> (7:288ce7:3) -> (8:fdc189:4) -> (9:7eb1e1:6) -> (10:3d33b9:8) -> (11:851887:9) -> (12:37a10a:11) -> (13:7d0a62:12) -> (14:08376c:13) -> (15:7221d3:14) -> 
-
 ```
