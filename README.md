@@ -150,8 +150,9 @@ node 18 (0:713304:0) -> (1:f76cf6:7) -> (2:f1d1bc:8) -> (3:cccd58:9) -> (4:61084
 node 19 (0:713304:0) -> (1:f76cf6:7) -> (2:f1d1bc:8) -> (3:cccd58:9) -> (4:61084a:10) -> 
 ```
 Then, we open the pbft option and specify 4 "bad nodes"
-
+```
 node main.js -p -b 1,5,7,10
+```
 After several rounds of bifurcation attacks, we see all the normal nodes are the same, only a few bad nodes are inconsistent
 ```
 node 0 (0:713304:0) -> (1:bb9e59:17) -> (2:641aad:18) -> (3:e2614b:19) -> (4:ac5538:0) -> (5:c82859:1) -> (6:015639:2) -> (7:288ce7:3) -> (8:fdc189:4) -> (9:7eb1e1:6) -> (10:3d33b9:8) -> (11:851887:9) -> (12:37a10a:11) -> (13:7d0a62:12) -> (14:08376c:13) -> (15:7221d3:14) -> 
