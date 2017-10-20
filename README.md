@@ -23,7 +23,7 @@ Determined by the current top-ranked list of principals and the current time off
 In regular intervals
 Because you can determine the legal forging by the timestamp of the block, you can verify the legitimacy of the signature and the client's public key provided by the block, and verify that the transaction in the block and the connection to the previous block are omitted.
 The pseudocode is shown below
-
+```
 for round i
     dlist_i = get N delegates sort by votes
     dlist_i = shuffle(dlist_i)
@@ -34,6 +34,7 @@ for round i
             generateBlock(keypair of delegates[pos])
         else
             skip
+```
 There are two main disadvantages of DPOS algorithm.
 
 One is to use the timestamp on the number of clients to take the way to determine the current time slice forging, which increases the possibility of error, if the client server time drift (such as may be a network problem or not properly configured ntp service), it will cause the network of bifurcation, the specific reference here [ https://github.com/LiskHQ/lisk/issues/82 ]
